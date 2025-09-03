@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>PROPERTY — Housekeeping Task Tracker 2025</title>
+  <style>
+    :root{--bg:#0f172a;--panel:#111827;--muted:#9ca3af;--brand:#3b82f6;--ok:#10b981;--bad:#ef4444}
+    *{box-sizing:border-box} body{margin:0;font:16px/1.4 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;color:#e5e7eb;background:linear-gradient(120deg,#312e81,#0f172a)}
+    .wrap{max-width:980px;margin:24px auto;padding:16px}
+    .card{background:rgba(17,24,39,.85);backdrop-filter:blur(6px);border:1px solid #374151;border-radius:14px;padding:18px}
+    h1{font-size:28px;margin:0 0 14px} h2{font-size:20px;margin:18px 0 10px}
+    .tabs{display:flex;gap:8px;margin:14px 0 16px}
+    .tabs button{border:1px solid #374151;background:#0b1220;color:#e5e7eb;padding:10px 14px;border-radius:10px;cursor:pointer}
+    .tabs button.active{background:var(--brand);border-color:var(--brand)}
+    label{display:block;margin:10px 0 6px;color:#cbd5e1}
+    select,input[type="date"],input[type="text"]{width:100%;background:#0b1220;border:1px solid #334155;border-radius:10px;color:#e5e7eb;padding:10px}
+    .grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+    .tasks{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin-top:8px}
+    .task{padding:10px;border:1px solid #334155;border-radius:10px;background:#0b1220;display:flex;gap:10px;align-items:flex-start}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .btn{background:#0b1220;border:1px solid #334155;color:#e5e7eb;padding:10px 14px;border-radius:10px;cursor:pointer}
+    .btn.primary{background:var(--brand);border-color:var(--brand)} .btn.ok{background:var(--ok);border-color:var(--ok)} .btn.bad{background:var(--bad);border-color:var(--bad)}
+    table{width:100%;border-collapse:collapse;margin-top:10px} th,td{border-bottom:1px solid #334155;padding:8px;text-align:left}
+    .muted{color:var(--muted)} .pill{display:inline-block;padding:3px 8px;border-radius:20px;background:#0b1220;border:1px solid #374151}
+    .legend{display:flex;gap:16px;flex-wrap:wrap;margin:10px 0}
+    .dot{width:12px;height:12px;border-radius:50%;display:inline-block;margin-right:6px;border:2px solid #111827}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h1 id="siteTitle">PROPERTY — Housekeeping Task Tracker 2025</h1>
+
+    <div class="tabs">
+      <button id="tabForm" class="active">Housekeeper Form</button>
+      <button id="tabMgr">Manager Dashboard</button>
+    </div>
+
+    <!-- FORM -->
+    <section id="formView">
+      <div class="grid">
+        <div>
+          <label>Housekeeper</label>
+          <select id="housekeeper"></select>
+        </div>
+        <div>
+          <label>Shift</label>
+          <select id="shift"></select>
+        </div>
+        <div>
+          <label>Date</label>
+          <input type="date" id="date"/>
+        </div>
+      </div>
+
+      <h2 class="muted">Tasks (<span id="taskCount">0</span>)</h2>
+      <div id="taskList" class="tasks"></div>
+
+      <div class="row" style="margin-top:14px">
+        <button id="submitBtn" class="btn ok">Submit</button>
+        <button id="clearBtn" class="btn bad">Clear checks</button>
+      </div>
+    </section>
+
+    <!-- MANAGER -->
+    <section id="mgrView" style="display:none">
+      <div class="grid">
+        <div>
+          <label>Filter by housekeeper</label>
+          <select id="fHousekeeper">
+            <option value="">All</option>
+          </select>
+        </div>
+        <div>
+          <label>Filter by shift</label>
+          <select id="fShift">
+            <option value="">All Shifts</option>
+          </select>
+        </div>
+        <div>
+          <label>Date</label>
+          <input type="date" id="fDate"/>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:12px">
+        <button id="refreshBtn" class="btn">Refresh</button>
+        <button id="exportAllBtn" class="btn primary">Export All Data (CSV)</button>
+      </div>
+
+      <h2 class="muted">Submissions</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th><th>Housekeeper</th><th>Shift</th>
+            <th>Completed</th><th>Total</th><th>Completion</th><th>Submitted</th><th>Incomplete list</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </section>
+  </div>
+</div>
+
+<script>
+/* ======== EDIT THIS BLOCK FOR EACH PROPERTY ======== */
+const SITE_TITLE = "PROPERTY NAME — Housekeeping Task Tracker 2025";
+
+// Optional: keep or update your team/colors
+const HOUSEKEEPERS = ["Anita","Jacky","Kunga","Lorena","Heidi","Ana","Irma","Agnes"];
+const HOUSEKEEPER_COLORS = {
+  Anita:"#14B8A6", Jacky:"#E74C3C", Kunga:"#22C55E", Lorena:"#3B82F6",
+  Heidi:"#A78BFA", Ana:"#F59E0B", Irma:"#EC4899", Agnes:"#374151"
+};
+
+// Shifts (value is stored; label is what users see)
+const SHIFTS = [
+  { value: "Morning", label: "MORNING SHIFT 🌇 — 7:30 am" },
+  { value: "Middle",  label: "MIDDLE SHIFT 🏙️ — 10:30/11:00 am" },
+  { value: "Evening", label: "EVENING SHIFT 🌃 — 12:00 pm" }
+];
+
+// Tasks per shift — updated with your extra line appended to each
+const EXTRA = "Clean , organize Caddy and make sure all cleaning tools are put back in right places and handheld vacuum filter is clean and in place.";
+const SHIFT_TASKS = {
+  Morning: [
+    "Turn lights on (or off exteriors)",
+    "Check Mrs. Office; fresh water in Owala stainless steel bottle",
+    "Set the table for kids’ breakfast",
+    "Empty dishwashers",
+    "Walk the dogs then feed",
+    "Check dining room from night prior",
+    "Quick quiet walk-through: clean anything from the day before",
+    "Flowers → Add water or change (task for 2 people)",
+    "Assist with family breakfast and any additional needs",
+    "Clean up after breakfast",
+    "Receive and display packages",
+    "Check bathroom on kitchen floor",
+    "Clean Oli's room/bathroom",
+    "Clean Frankie's room/bathroom",
+    "Clean Sonnet's room → if available; otherwise falls on evening shift",
+    "Collect laundry → bring to laundry room",
+    "Clean Master if available; otherwise falls to middle shift",
+    "Clean kids’ lounge/snug room",
+    "Clean kids’ 3rd floor hallways",
+    "Clean kids’ room; organize closets",
+    EXTRA
+  ],
+  Middle: [
+    "Set up kitchen for kids’ lunch (clean after)",
+    "Assist with cleaning Master or any rooms needing attention",
+    "Assist with any packages or deliveries",
+    "Clean Master level hallway",
+    "Clean Sauna room / 4th floor",
+    "Clean playroom if available",
+    "Clean 4th floor hallway",
+    "Clean 4th floor powder room → check all of them",
+    "Clean gym room; disinfect, organize",
+    "Assist with family lunch",
+    "Clean Mr. Stewart’s office",
+    "Collect kitchen garbage",
+    "Sweep outside every morning",
+    "Clean garden; blow leaves",
+    "Clean & organize garden furniture; cover if raining",
+    "Walk the dogs (Saturday or Sunday)",
+    "Clean bathroom on kitchen floor",
+    "Help put away laundry when ready",
+    "Change water for dogs",
+    EXTRA
+  ],
+  Evening: [
+    "Ensure lights are on evening setting around 5:30/6 pm",
+    "Clean parlor level hallway",
+    "Clean dining room",
+    "Clean living room",
+    "Clean pantry and stairways on parlor level",
+    "Clean 138 entryway",
+    "Clean parlor level powder room",
+    "Clean balcony if needed",
+    "Turn down the kids’ rooms after nap (usually after 4 pm)",
+    "Turn down, clean & refresh all bathrooms",
+    "Set dinner table for kids",
+    "Assist with family dinner",
+    "Clean guest room on kitchen floor",
+    "Feed cat and dogs",
+    "Walk dogs",
+    "Collect garbage (collect g. on sheet for sign days)",
+    "Bring clean laundry to the rooms",
+    "Check laundry room to ensure nothing is left",
+    "Refill fridge and ensure drinks are fully stocked",
+    "Empty cat/dog kitchen soup tray",
+    "Clean kitchen, pantry and mudroom for the day",
+    "Clear family room & check guest room apartment",
+    "Dispose of all garbage (Tue: trash + large items; Thu: trash, recycling, compost; Sat: trash + large items)",
+    EXTRA
+  ]
+};
+/* ======== END EDIT BLOCK ======== */
+
+document.getElementById("siteTitle").textContent = SITE_TITLE;
+
+// API endpoint (same function as before)
+const API = "/.netlify/functions/submissions";
+
+// ----- UI WIRING -----
+const el = {
+  tabForm: document.getElementById("tabForm"),
+  tabMgr: document.getElementById("tabMgr"),
+  formView: document.getElementById("formView"),
+  mgrView: document.getElementById("mgrView"),
+  housekeeper: document.getElementById("housekeeper"),
+  shift: document.getElementById("shift"),
+  date: document.getElementById("date"),
+  taskList: document.getElementById("taskList"),
+  taskCount: document.getElementById("taskCount"),
+  submitBtn: document.getElementById("submitBtn"),
+  clearBtn: document.getElementById("clearBtn"),
+  fHousekeeper: document.getElementById("fHousekeeper"),
+  fShift: document.getElementById("fShift"),
+  fDate: document.getElementById("fDate"),
+  rows: document.getElementById("rows"),
+  exportAllBtn: document.getElementById("exportAllBtn"),
+  refreshBtn: document.getElementById("refreshBtn"),
+};
+
+// Tabs
+el.tabForm.onclick = ()=>{ el.tabForm.classList.add("active"); el.tabMgr.classList.remove("active"); el.formView.style.display="block"; el.mgrView.style.display="none"; };
+el.tabMgr.onclick  = ()=>{ el.tabMgr.classList.add("active"); el.tabForm.classList.remove("active"); el.formView.style.display="none";  el.mgrView.style.display="block"; fetchAndRender(); };
+
+// Populate basics
+function opt(value,label){ const o=document.createElement("option"); o.value=value; o.textContent=label||value; return o; }
+HOUSEKEEPERS.forEach(n=>{ el.housekeeper.appendChild(opt(n)); el.fHousekeeper.appendChild(opt(n)); });
+SHIFTS.forEach(s=>{ el.shift.appendChild(opt(s.value,s.label)); el.fShift.appendChild(opt(s.value,s.label)); });
+
+el.date.valueAsNumber = Date.now() - (new Date().getTimezoneOffset()*60000);
+
+// Render tasks for selected shift
+function renderTasks() {
+  const s = el.shift.value || "Morning";
+  const list = SHIFT_TASKS[s] || [];
+  el.taskList.innerHTML = "";
+  list.forEach((t,i)=>{
+    const id="t"+i;
+    const wrap=document.createElement("label");
+    wrap.className="task";
+    wrap.innerHTML = `<input type="checkbox" id="${id}"><span>${t}</span>`;
+    el.taskList.appendChild(wrap);
+  });
+  el.taskCount.textContent = list.length;
+}
+el.shift.addEventListener("change", renderTasks);
+renderTasks();
+
+// Clear checks
+el.clearBtn.onclick = ()=> {
+  el.taskList.querySelectorAll('input[type="checkbox"]').forEach(c=>c.checked=false);
+};
+
+// Submit
+el.submitBtn.onclick = async ()=> {
+  const housekeeper = el.housekeeper.value;
+  const shift = el.shift.value;
+  const date = el.date.value;
+  const tasks = SHIFT_TASKS[shift] || [];
+  const checks = Array.from(el.taskList.querySelectorAll('input[type="checkbox"]')).map((c,i)=>({checked:c.checked, text:tasks[i]}));
+  const completedCount = checks.filter(x=>x.checked).length;
+  const totalTasks = tasks.length;
+  const incompleteList = checks.filter(x=>!x.checked).map(x=>x.text).join(" • ");
+  const submittedAt = new Date().toISOString();
+  const completionRate = totalTasks ? Math.round((completedCount/totalTasks)*100) : 0;
+
+  const payload = {
+    date, housekeeper, shift,
+    completedCount, totalTasks, completionRate,
+    submittedAt, incompleteList
+  };
+
+  try {
+    const res = await fetch(API, {method:"POST", headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+    if(!res.ok) throw new Error(await res.text());
+    alert("✅ Submission saved!");
+    el.clearBtn.click();
+  } catch(e) {
+    alert("❌ Could not save: " + e);
+  }
+};
+
+// MANAGER DASH
+async function fetchAll() {
+  const r = await fetch(API);
+  const j = await r.json().catch(()=>({submissions:[] }));
+  return j.submissions || [];
+}
+
+async function fetchAndRender() {
+  const data = await fetchAll();
+  const hk = el.fHousekeeper.value;
+  const sh = el.fShift.value;
+  const dt = el.fDate.value;
+
+  const filtered = data.filter(row=>{
+    if(hk && row.housekeeper!==hk) return false;
+    if(sh && row.shift!==sh) return false;
+    if(dt && row.date!==dt) return false;
+    return true;
+  });
+
+  el.rows.innerHTML = filtered.map(r=>`
+    <tr>
+      <td>${r.date||""}</td>
+      <td>${r.housekeeper||""}</td>
+      <td>${r.shift||""}</td>
+      <td>${r.completedCount||0}</td>
+      <td>${r.totalTasks||0}</td>
+      <td>${(r.completionRate||0)}%</td>
+      <td class="muted">${r.submittedAt? new Date(r.submittedAt).toLocaleString(): ""}</td>
+      <td>${r.incompleteList||""}</td>
+    </tr>`).join("");
+}
+el.refreshBtn.onclick = fetchAndRender;
+
+// Export all data (CSV)
+el.exportAllBtn.onclick = async ()=>{
+  const data = await fetchAll();
+  if(!data.length){ alert("No data to export"); return; }
+  const header = ["date","housekeeper","shift","completedCount","totalTasks","completionRate","submittedAt","incompleteList"];
+  const lines = [header.join(",")].concat(
+    data.map(r=> header.map(k=>{
+      const v = (r[k]??"")+"";
+      return /[,"
+]/.test(v) ? `"${v.replace(/"/g,'""')}"` : v;
+    }).join(","))
+  );
+  const blob = new Blob([lines.join("\n")],{type:"text/csv"});
+  const url = URL.createObjectURL(blob);
+  const a = Object.assign(document.createElement("a"), {href:url, download:"submissions.csv"});
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+};
+
+// initial
+fetchAndRender();
+</script>
+</body>
+</html>
